@@ -1,0 +1,269 @@
+Lesson 3
+========================================================
+
+***
+
+### What to Do First?
+Notes: Understand the data you have, understant the variables, look at the summary and form some visualizations to uderstand those variables.
+
+***
+
+### Pseudo-Facebook User Data
+Notes: This file has approximately 99,000 rows or observations in it with 15 variables.
+Each observation represents a user and that user will have different information.
+
+```{r Pseudo-Facebook User Data}
+list.files()
+pf <- read.delim('pseudo_facebook.tsv')
+names(pf)
+```
+
+***
+
+### Histogram of Users' Birthdays
+Notes: We will use ggplot2 library to plot day of bith dob_day
+
+```{r Histogram of Users\' Birthdays}
+library(ggplot2)
+library(ggthemes)
+ggplot(aes(x = dob_day), data = pf) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = 1:31)
+```
+
+***
+
+#### What are some things that you notice about this histogram?
+Response: The first day of all months has a very tall bar which is not reasonable, as we expect not having a huge difference between the days.
+
+***
+
+### Faceting
+Notes: we can use facet_wrap or facet_grid
+
+```{r Faceting}
+qplot(x= dob_day, data= pf)+
+  scale_x_continuous(breaks= 1:31)+
+  facet_wrap(~dob_month, ncol=3)
+```
+
+#### Let’s take another look at our plot. What stands out to you here?
+Response: now the first of Janwary has a very tall bar
+
+***
+
+### Be Skeptical - Outliers and Anomalies
+Notes: the tallest bar which is for the first o Jan. it could be this way because people don't enter their real birthday date when they register
+
+***
+
+#### What code would you enter to create a histogram of friend counts? we will use qplot with x = friend_count
+
+```{r Friend Count}
+qplot(x= friend_count, data= pf)
+```
+
+### Limiting the Axes
+Notes: we can use xlim or limits to limit the axes
+
+```{r Limiting the Axes}
+qplot(x= friend_count, data= pf)+
+  scale_x_continuous(limits= c(0,1000))
+```
+
+### Adjusting the Bin Width
+Notes: we will adjust the binwidth parameter with a value of 25, and break the x axis with every 50 units
+
+```{r Adjusting the Bin Width}
+qplot(x = friend_count, data = pf, binwidth = 25) +
+  scale_x_continuous(limits = c(0, 1000),
+                     breaks = seq(0, 1000, 50))
+```
+### Faceting Friend Count
+```{r Faceting Friend Count}
+# What code would you add to create a facet the histogram by gender?
+# Add it to the code below.
+qplot(x = friend_count, data = pf, binwidth = 10) +
+  scale_x_continuous(limits = c(0, 1000),
+                     breaks = seq(0, 1000, 50))+
+  facet_wrap(~gender)
+```
+
+***
+
+### Omitting NA Values
+Notes: when we facet by gender we have got 3 histograms, one for female, one for male, and one for NA values, now we will omit NA values to get just 2 histograms for the gender.
+
+```{r Omitting NA Values}
+qplot(x = friend_count, data = subset(pf, !is.na(gender)), binwidth = 10) +
+  scale_x_continuous(limits = c(0, 1000),
+                     breaks = seq(0, 1000, 50))+
+  facet_wrap(~gender)
+```
+
+***
+
+### Statistics 'by' Gender
+Notes: we can use the table command to know which gender has more friends
+
+```{r Statistics \'by\' Gender}
+table(pf$gender)
+by(pf$friend_count, pf$gender, summary)
+```
+
+#### Who on average has more friends: men or women?
+Response: women
+
+#### What's the difference between the median friend count for women and men?
+Response: 22
+
+#### Why would the median be a better measure than the mean?
+Response: because the median is a more robust statistic, a few people with huge friend counts drag the mean upwards which isn't necessarily representative of most users, the median though is resistant to change.
+
+***
+
+### Tenure
+Notes: how mamy days someone has been using facebook
+
+```{r Tenure}
+qplot(x = tenure, data = pf, binwidth = 30,
+      color= I('black'), fill = I('#099DD9'))
+```
+
+***
+
+#### How would you create a histogram of tenure by year? tenure/365
+
+```{r Tenure Histogram by Year}
+qplot(x = tenure/365, data = pf, binwidth = 0.25,
+      color= I('black'), fill = I('#099DD9'))+
+  scale_x_continuous(breaks= seq(1, 7, 1), limits= c(0, 7))
+```
+
+***
+
+### Labeling Plots
+Notes:
+we use xlab and ylab to label the plot
+```{r Labeling Plots}
+qplot(x = tenure/365, data = pf, 
+      xlab= 'Number of years using Facebook',
+      ylab= 'Number of users in sample',
+      color= I('black'), fill = I('#099DD9'))+
+  scale_x_continuous(breaks= seq(1, 7, 1), limits= c(0, 7))
+```
+
+***
+
+### User Ages
+Notes: maximum age is 113, so we will make a histogram between 0 and 113 years
+
+```{r User Ages}
+qplot(x = age, data = pf, binwidth=1,
+      color= I('black'), fill = I('#099DD9'))+
+  scale_x_continuous(breaks= seq(0, 113, 5))
+```
+
+#### What do you notice?
+Response: the largest spikes in the mis to late 20's, (the tallest bin is on 18).
+There are some unusual spikes above 100, that is because some users maybe exaggerating their age.
+
+***
+
+### Transforming Data
+Notes: when we plot friend_coynt variable we can see that we will have a long tail, our data set is over-dispersed, so we will transform the variable using log2, log10, or sqrt.
+
+```{r Transforming Data}
+library(gridExtra)
+
+p1 <- qplot(friend_count, data= pf)
+p2 <- qplot( log10(friend_count + 1), data= pf)
+p3 <- qplot( sqrt(friend_count + 1), data= pf)
+grid.arrange(p1, p2, p3, ncol=1)
+```
+***
+
+### Add a Scaling Layer
+Notes:
+Using scale_x_log will label the axis in actual friend_counts (the name of the variable), whereas using the log10 wrapper will label the x axis in log units.
+
+```{r Add a Scaling Layer}
+qplot(friend_count, data= pf)+
+  scale_x_log10()
+```
+
+***
+
+
+### Frequency Polygons
+Notes: it is a type of plot that we use to compare distributions, and it allows us to see the shapes and the peaks of our distribution in more detail.
+
+```{r Frequency Polygons}
+qplot(x= friend_count, data= subset(pf, !is.na(gender)),
+      binwidth= 10, geom = 'freqpoly', color= gender)+
+  scale_x_continuous(lim= c(0, 1000), breaks= seq(0, 1000, 50))
+```
+
+***
+
+### Likes on the Web
+Notes: females have way more likes than males, and we can't see that using plots, that's why we use th by() command passing two parameters: www_likes and gender, and the sum function to total of likes for each gender.
+
+```{r Likes on the Web}
+by(pf$www_likes, pf$gender, sum)
+
+
+```
+
+
+***
+
+### Box Plots
+Notes: Box plots help us to see the differences in the distribution quickly, we use the continuous variable as y, and the categorical variable as x.
+
+```{r Box Plots}
+qplot(x= gender, y= friend_count,
+      data= subset(pf, !is.na(gender)),
+      geom= 'boxplot')
+```
+
+#### Adjust the code to focus on users who have friend counts between 0 and 1000.
+
+```{r}
+qplot(x= gender, y= friend_count,
+      data= subset(pf, !is.na(gender)),
+      geom= 'boxplot') +
+  coord_cartesian(ylim = c(0, 1000))
+```
+
+***
+
+### Box Plots, Quartiles, and Friendships
+Notes: We used friendships_initiated as y varable, In the box plot we can see that the median black line is slightly higher for females than the median black line for males, which means that females have slightly more friend requests. To check with a numerical summary we used by command.
+
+```{r Box Plots, Quartiles, and Friendships}
+qplot(x= gender, y= friendships_initiated,
+      data= subset(pf, !is.na(gender)),
+      geom= 'boxplot') +
+  coord_cartesian(ylim = c(0, 150))
+
+by(pf$friendships_initiated, pf$gender, summary)
+```
+
+***
+
+### Getting Logical
+Notes: We will convert the variable to a binary variable that has only true or false (0, 1)- we will call it mobile_check_in to know whether the user has ever used mobile check-in rather than how many times he checked in using a mobile device.
+
+```{r Getting Logical}
+pf$mobile_check_in <- NA
+pf$mobile_check_in <- ifelse(pf$mobile_likes > 0, 1, 0)
+pf$mobile_check_in <- factor(pf$mobile_check_in)
+summary(pf$mobile_check_in)
+sum(pf$mobile_check_in==1)/ length(pf$mobile_check_in)
+```
+
+***
+
+Click **KnitHTML** to see all of your hard work and to have an html
+page of this lesson, your answers, and your notes!
