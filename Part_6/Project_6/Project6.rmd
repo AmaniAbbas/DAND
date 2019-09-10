@@ -1,0 +1,475 @@
+---
+title: "Exploratory Data Analysis: Red Wine Quality Prediction"
+author: "Amani Abbas"
+output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+chunk_output_type: inline
+---
+========================================================
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Loading needed packages
+library('GGally')
+library('scales')
+library('memisc')
+library('lattice')
+library('MASS')
+library('car')
+library('reshape2')
+library('dplyr')
+library(ggplot2)
+library(gridExtra)
+
+# knitr: Suppress code/messages/warnings 
+#        Set default plot options and center them
+knitr::opts_chunk$set(fig.width=9,fig.height=5,
+                      fig.path='Figs/',
+                      fig.align='center',tidy=TRUE,
+                      echo=FALSE,warning=FALSE,message=FALSE)
+```
+
+# Loading Data
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+wineqr <- read.csv("wineQualityReds.csv")
+
+# Delete the X variable as it is not useful
+wqr <- subset(wineqr, select = -X)
+
+head(wqr)
+```
+
+### About The Data Set
+
+I am using Red Wine Quality data set, provided by Udacity, Created by: Paulo Cortez (Univ. Minho), Antonio Cerdeira, Fernando Almeida, Telmo Matos and Jose Reis (CVRVV) @ 2009.
+
+This tidy data set contains 1,599 red wines with 11 variables on the chemical properties of the wine. At least 3 wine experts rated the quality of each wine, providing a rating between 0 (very bad) and 10 (very excellent).
+
+# Univariate Plots Section
+### Exploring our data set
+
+```{r echo=FALSE, Univariate_Plots}
+# looking at the data summary
+summary(wqr)
+str(wqr)
+```
+
+
+### Exploring our variables
+#### Quality - The Main Variable of Our Investigation:
+
+```{r echo=FALSE, Quality_Variable}
+# Quality variable summary
+summary(wqr$quality)
+
+# Quality histogram
+ggplot(aes(x = quality), 
+       data = wqr) +
+  geom_histogram(color="black", 
+                 fill="dark blue", binwidth = 1) +
+  scale_x_continuous(breaks = 1:10)
+```
+
+All of our data are falling under quality between 3 and 8, however, most of our data are falling under 5 and 6. 
+
+We will try to find any relationship between the quality and other variabls later in the investigation.
+
+I will create a new variable called quality.cat to transform the quality variable from numerical to categorical.
+
+```{r}
+# create quality.cat variable which contains three values Low, Medium, and High
+wqr$quality.cat <- cut(x=wqr$quality,
+                       breaks = c(0, 4, 6, 8))
+levels(wqr$quality.cat) <- c("Low", "Medium", "High")
+
+#  create a bar chart for quality.cat
+ggplot(aes(x = quality.cat), data = wqr) +
+  geom_bar()
+```
+quality.cat is a categorical variable contains 3 values where:
+* 0 to 4 quality ratings fall under Low
+* 4 to 6 quality ratings fall under Medium
+* 6 to 8 quality ratings fall under High
+
+#### Distribution of the rest of the variables
+
+```{r echo=FALSE, Distribution_of_other_variables}
+#create a function called hist_v that takes a variable name, x label, and binwidth as arguments and return a histogram.
+hist_v <- 
+  function(var_name, xlab_name, bin_width) {
+    ggplot(aes(x = var_name), 
+           data = wqr) +
+      xlab(xlab_name) +
+      geom_histogram(colour="black",
+                     binwidth = bin_width)
+}
+
+# create our plots using hist_v function
+
+# fixed acidity min. is 4.6 and max. is 15.9 that's why I choose bindwith = 0.5
+p1 <- hist_v(wqr$fixed.acidity, "Fixed Acidity", 0.5)
+
+# volatile acidity min. is 0.12 and max. is 1.58 that's why I choose bindwith = 0.05
+p2 <- hist_v(wqr$volatile.acidity, "Volatile Acidity", 0.05)
+
+# Citric Acid min. is 0.00 and max. is 1.00, median is 0.26, that's why I choose bindwith = 0.05
+p3 <- hist_v(wqr$citric.acid, "Citric Acid", 0.05)
+
+# Residual Sugar min. is 0.9 and max. is 15.50 that's why I choose bindwith = 0.5
+p4 <- hist_v(wqr$residual.sugar, "Residual Sugar", 0.5)
+
+# Chlorides min. is 0.012 and max. is 0.611 that's why I choose bindwith = 0.01
+p5 <- hist_v(wqr$chlorides, "Chlorides", 0.01)
+
+# Free Sulfur Dioxide min. is 1 and max. is 72 that's why I choose bindwith = 1
+p6 <- hist_v(wqr$free.sulfur.dioxide, "Free Sulfur Dioxide", 1)
+
+# Total Sulfur Dioxide min. is 6 and max. is 289 that's why I choose bindwith = 5
+p7 <- hist_v(wqr$total.sulfur.dioxide, "Total Sulfur Dioxide", 5)
+
+# Density min. is 0.9901 and max. is 1.0037 that's why I choose bindwith = 0.0001
+p8 <- hist_v(wqr$density, "Density", 0.001)
+
+# pH min. is 2.74 and max. is 4.01 that's why I choose bindwith = 0.05
+p9 <- hist_v(wqr$pH, "pH", 0.05)
+
+# Sulphates min. is 0.33 and max. is 2.00 that's why I choose bindwith = 0.05
+p10 <- hist_v(wqr$sulphates, "Sulphates", 0.05)
+
+# Alcohol min. is 8.4 and max. is 14.9 that's why I choose bindwith = 0.1
+p11 <- hist_v(wqr$alcohol, "Alcohol", 0.05)
+
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,ncol=3)
+```
+
+
+We have some variables (Residual Sugar, Chlorides, Free Sulfur Dioxide, Total Sulfur Dioxide, Alcohol, and Sulphates) that shows skewed shapes not a normal ditribution, or have a very long tail, thus, I will transform them using log10 trying to get normal distributions.
+
+```{r echo=FALSE, Transforming_variables}
+# create a function called hist_log that takes variable name and binwidth as arguments and return a histogram with log10
+hist_log <- 
+  function(var_name, xlab_name, bin_width){
+    ggplot(aes(x = log10(var_name)), 
+           data = wqr) +
+      xlab(xlab_name) +
+      geom_histogram(colour="black",
+                     binwidth = bin_width)
+}
+
+# create our plots using hist_log function
+p11 <- hist_log(wqr$residual.sugar, "log10(Residual Sugar)", 0.1)
+p12 <- hist_log(wqr$chlorides, "log10(Chlorides)", 0.05)
+p13 <- hist_log(wqr$free.sulfur.dioxide, "log10(Free Sulfur Dioxide)", 0.05)
+p14 <- hist_log(wqr$total.sulfur.dioxide, "log10(Total Sulfur Dioxide)", 0.1)
+p15 <- hist_log(wqr$alcohol, "log10(Alcohol)", 0.015)
+p16 <- hist_log(wqr$sulphates, "log10(Sulphates)", 0.05)
+
+grid.arrange(p11,p12,p13,p14,p15,ncol=3)
+```
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+1,599 observations and 12 variables, few of these variales are normally distributed (Fixed Acidity, Volatile Acidity, Des=nsity, and pH), the rest are skewed or/and having a very long tail.
+```{r echo=FALSE}
+# dimension and names of the variables in our data set
+dim(wqr)
+names(wqr)
+```
+
+
+### What is/are the main feature(s) of interest in your dataset?
+Quality is the main feature, as I am interested in investigating which chemical properties influence the quality of red wines.
+
+### What other features in the dataset do you think will help support your \investigation into your feature(s) of interest?
+All of other variables will help me in my investigation. I will try to find the relationship between each variable and the quality variable to figure out which of these features influencing/ affecting on the quality.
+
+### Did you create any new variables from existing variables in the dataset?
+Yes, I have created a new variable to convert the quality variable from numeric into categorical variable and called it quality.cat. 
+
+### Of the features you investigated, were there any unusual distributions? \Did you perform any operations on the data to tidy, adjust, or change the form \ of the data? If so, why did you do this?
+Many of the variables have a very long tail and skewed not normally distributed so I used log10 to transform the variables to get normal distributions.
+
+# Bivariate Plots Section
+
+### Pairing Variables
+```{r echo=FALSE, Bivariate_Plots}
+# pairing the variables in order to find relationships
+ggcorr(wqr[1:12])
+```
+
+Looking at the plots I can see a kind of relationship between alcohol and quality, however, I will invistigate also if there are relationships between quality and any of these properities:
+ * Sulphates
+ * Citric Acid
+ * Volatile Acidity
+ 
+### Do wines with higher alcoholic content receive better ratings?
+ 
+```{r}
+# looking at alcohol summary and correlation btween quality and alcohol
+summary(wqr$alcohol)
+cor(wqr$quality, wqr$alcohol)
+
+# create a function for easier plotting
+point_plot <- function(xaxis, yaxis, xlabel, ylabel) {
+  ggplot(aes(x= xaxis, y= yaxis), 
+         data = wqr) +
+    scale_x_continuous(breaks=c(3:8)) +
+    xlab(xlabel) +
+    ylab(ylabel) +
+    geom_jitter(alpha = 0.25) +
+    geom_smooth(method = 'lm', 
+                color = 'red')
+}
+# create a scatter plot for alcohol and quality
+point_plot(wqr$quality, wqr$alcohol, "Quality", "Alcohol")
+```
+
+As we can see there is a positive relashionship however it is not strong enough, I will use the categorical variable of quality with boxplots for better understanding.
+
+```{r}
+# comparing alcohol to quality.cat, using log10 for alcohol
+ggplot(aes(x= quality.cat, y= log10(alcohol)), 
+       data = wqr) +
+  geom_boxplot() +
+  geom_jitter(color = "dark blue",
+              alpha = 0.25)
+```
+As we can see most of our data are falling under the meduim quality, however, yes there is a relationship between high quality and increasing in alcoholic content.
+
+### Do wines with higher Sulphates content receive better ratings?
+
+```{r}
+# looking at Sulphates summary and correlation btween Quality and Sulphates
+summary(wqr$sulphates)
+cor(wqr$quality, wqr$sulphates)
+
+# create a scatter plot for Sulphates and Quality
+point_plot(wqr$quality, wqr$sulphates, "Quality", "Sulphates")
+```
+There is a relationship between high quality and high sulphates, it is not as strong as alcohol relationship though. Let's check with the categorical quality variable.
+
+```{r}
+# create a boxplot for sulphates with quality.cat
+ggplot(aes(x= quality.cat, y= sulphates), 
+       data = wqr) +
+  geom_boxplot()
+```
+Yes, the relationship is positive and it is clear in this plot.
+
+### Do wines with higher Critic Acid receive better ratings?
+```{r}
+# looking at Citric Acid summary and correlation btween Quality and Critic Acid
+summary(wqr$citric.acid)
+cor(wqr$quality, wqr$citric.acid)
+
+# create a scatter plot for Citric Acid and Quality
+point_plot(wqr$quality, wqr$citric.acid, "Quality", "Citric Acid")
+```
+Yet, the relationship is not clear.
+```{r}
+# Create a box plot for citric acid with quality
+ggplot(aes(x= quality.cat, y= citric.acid), 
+       data = wqr) +
+  geom_boxplot()
+```
+Now the relationship is so clear, so we can say yes, there is a positive relationship between high quality rating and Citric Acid.
+
+### Do wines with high Volatile Acidity receive better ratings?
+```{r}
+# looking at Volatile Acidity summary and correlation btween Quality and Volatile Acidity
+summary(wqr$volatile.acidity)
+cor(wqr$quality, wqr$volatile.acidity)
+
+# create a scatter plot for Volatile Acidity and Quality
+point_plot(wqr$quality, wqr$volatile.acidity, "Quality", "Volatile Acidity")
+```
+Oh! this time we are looking at a negative relationship, let's see the boxplot.
+```{r}
+# Create a box plot for Volatile Acidity with quality
+ggplot(aes(x= quality.cat, y= volatile.acidity),
+       data = wqr) +
+  geom_boxplot()
+```
+And yes it is somehow a strong negative relationship between Quality rating and Volatile Acidity.
+
+## Relationships Between Supporting Variables
+Now, let's find if there are relashionships between other variables that have no relationship with the quality variable.
+Let's have a look at the relationship between Density and pH.
+```{r}
+# create a plot for the relatinship between Density and pH level
+point_plot(wqr$density, wqr$pH, "Density", "pH")
+```
+It is an obvious negative relationship.
+
+What about Density and Fixed Acidity?
+```{r}
+# create a plot for the relatinship between Density and Fixed Acidity
+point_plot(wqr$density, wqr$fixed.acidity, "Density", "Fixed Acidity")
+```
+A very strong positive relationship here.
+
+So it must be a negative relationship between pH and Fixed Acidity.
+```{r}
+# create a plot for the relatinship between Density and Fixed Acidity
+point_plot(wqr$pH, wqr$fixed.acidity, "pH", "Fixed Acidity")
+```
+And yes! as expected, a very strong negative relationship between pH and Fixed Acidity.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \investigation. How did the feature(s) of interest vary with other features in \the dataset?
+I found that the strongest relationship between our main feature (Quality) and other features is between Quality and Alcohol, and it is a positive relationship.
+However, there are positive relationships between quality and Sulphates, and between Quality and Citric Acid.
+A negative relationship has been found between Quality and Volatile Acidity.
+
+### Did you observe any interesting relationships between the other features \ What was the strongest relationship you found?
+I found a very strong negative relationship between density and pH, and between Fixed Acidity and pH. While there is a positive relationship between Density and Fixed Acidity.
+
+# Multivariate Plots Section
+
+In this section I will create plots for two variables, one that has a strong relationship with the main variable (quality). And will use the categorigal quality variable (quality.cat) for levels.
+This combination may lead for better understanding of what affects red win quality rating.
+
+## Alcohol With Other Propereties:
+
+### Alcohol with Density:
+
+```{r echo=FALSE, Multivariate_Plots}
+# plot Alcohol and Density with quality.cat
+ggplot(aes(x = alcohol, y = density, 
+           color = quality.cat), 
+       data = wqr) +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+When looking at low density but high alcohol red dots are much less than high density and low alcohol. Thus, we can say that low density with high alcohol lead to medium or high quality rating.
+
+### Alcohol with Free Sulfur Dioxide:
+
+```{r echo=FALSE, Alcohol_vs_free.sulfur.dioxide}
+# plot Alcohol and Free Sulfur Dioxide with quality.cat
+ggplot(aes(x = alcohol, y = free.sulfur.dioxide,
+           color = quality.cat),
+       data = wqr) +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+Free sulfur dioxide and alcohol have no clear relationship with each other, however, higher sulfur dioxide has few red dots (low quality), and higher alcohol has few or no red dots (low quality) as well, so it is kind of there are 3 choices that will lead to a medium or high quality rating:
+1. High alcohol and low free sulfur dioxide
+2. High free sulfur dioxide and low alcohol
+3. High alcohol and high free sulfur dioxide.
+
+## Critic Acid With Other Propereties:
+
+### Critic Acid with pH:
+
+```{r echo=FALSE, Critic_Acid_with_pH}
+# plot Critic Acid and pH with quality.cat
+ggplot(aes(x = citric.acid, y = pH, 
+           color = quality.cat), 
+       data = wqr) +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+pH and citric acid have a negative relationship, as well as pH and quality, while critic acid has a positive relationship with quality. So, low pH and high critic acid will lead to a high chance of having a haigh quality rating.
+
+### Critic Acid with Fixed Acidity:
+
+```{r echo=FALSE, Critic_Acid_with_Fixed_Acidity}
+# plot Critic Acid and Fixed Acidity with quality.cat
+ggplot(aes(x = citric.acid, y = fixed.acidity, 
+           color = quality.cat),
+       data = wqr) +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+Fixed Acidity and Critic Acid have a strong positive relationship with each other, and because Critic Acid has a positive relationship with quality we can see that high quality dots are much more in high critic acid and high fixed acidity, but we still have low quality dots there as well!
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \investigation. Were there features that strengthened each other in terms of \looking at your feature(s) of interest?
+When looking at low density but high alcohol red dots are much less than high density and low alcohol. Thus, we can say that low density with high alcohol lead to medium or high quality.
+pH and citric acid have a negative relationship, as well as pH and quality, while critic acid has a positive relationship with quality. So, low pH and high critic acid will lead to a high chance of having a haigh quality rating.
+Fixed Acidity and Critic Acid have a strong positive relationship with each other, and because Critic Acid has a positive relationship with quality we can see that high quality dots are much more in high critic acid and high fixed acidity, but we still have low quality dots there as well!
+
+### Were there any interesting or surprising interactions between features?
+Free sulfur dioxide and alcohol have no clear relationship with each other, however, higher sulfur dioxide has few red dots (low quality), and higher alcohol has few or no red dots (low quality) as well, so it is kind of there is 3 choices that will lead to medium or high quality rating:
+1. High alcohol and low free sulfur dioxide
+2. High free sulfur dioxide and low alcohol
+3. High alcohol and high free sulfur dioxide.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+# create a histogram to see the distribution of our data in terms of quality ratings
+ggplot(aes(x = quality), 
+       data = wqr) +
+  geom_histogram(color="black", fill="dark blue", binwidth = 1) +
+  scale_x_continuous(breaks = c(1:10)) +
+  ggtitle("Quality Rating for Red Wines") +
+  xlab("Quality (score between 0 and 10)") +
+  ylab("Frequency")
+  
+```
+
+### Description One
+This is the plot for our main variable for this investigation, which is Quality rating for red wines.
+As you can see here most of our data are falling uder 5 and 6 which means medium quality, thus, our investigation/predection for high or low quality rating will not be so accurate as we don't have enough data falling under niether both.
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+# plot Critic Acid and Fixed Acidity with quality.cat
+ggplot(aes(x = citric.acid, y = fixed.acidity, 
+           color = quality.cat),
+       data = wqr) +
+  ggtitle("Critic Acid vs Fixed Acidity with Quality Levels") +
+  xlab("Critic Acid (g / dm^3)") +
+  ylab("Fixed Acidity
+       (tartaric acid - g / dm^3)") +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+
+### Description Two
+Fixed Acidity and Critic Acid have a strong positive relationship with each other, and because Critic Acid has a positive relationship with quality we can see that high quality dots are much more in high critic acid and high fixed acidity, but we still have low quality dots there as well!
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+# plot Alcohol and Free Sulfur Dioxide with quality.cat
+ggplot(aes(x = alcohol, y = free.sulfur.dioxide,
+           color = quality.cat), 
+       data = wqr) +
+  ggtitle("Alcohol Vs Free Sulfur Dioxide") +
+  xlab("Alcohol (% by volume)") +
+  ylab("Free Sulfur Dioxide
+       (mg / dm^3)") +
+  geom_point() +
+  geom_jitter(alpha = 0.25) +
+  scale_color_brewer(palette = "Set1", name="Quality")
+```
+
+### Description Three
+Free sulfur dioxide and alcohol have no clear relationship with each other, however, higher sulfur dioxide has few red dots (low quality), and higher alcohol has few or no red dots (low quality) as well, so it is kind of there is 3 choices that will lead to medium or high quality rating:
+1. High alcohol and low free sulfur dioxide
+2. High free sulfur dioxide and low alcohol
+3. High alcohol and high free sulfur dioxide.
+------
+
+# Reflection
+## Reflection on the project:
+We have seen some relationships between the main variable and rest of variables, however, our investigation and foundings are not much accurate as we don't have enough data under the low and high quality ratings, most of our data are falling under the medium quality rating which makes our investigation hard.
+We could also compare this data set (Red Wine Quality) with other data sets for different kind of wines like (White wine Quality), or we could combine both data sets to get more observations under low and high quality rating to succeed in our prediction.
+
+## Reflection on Learning R:
+I found learning R much harder than learning Python or SQL. I would make the same project using Python and get almost same results with half of the time I spent it on R. However, R has more features for plotting than Python (for what I have learned so far), and creating plots on R is much fun and colorful. Would love to learn more about using R in data analysis but absolutely will be using Python and SQl more.
